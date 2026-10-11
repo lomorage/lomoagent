@@ -26,7 +26,7 @@
   <rect width="980" height="1200" fill="url(#grid)"/>
 
   <!-- Title -->
-  <text x="30" y="22" fill="#94a3b8" font-size="14" font-weight="700">Lomo Photo Viewer — Installation Flow</text>
+  <text x="30" y="22" fill="#94a3b8" font-size="14" font-weight="700">LomoAgent — Installation Flow</text>
 
   <!-- ═══ ARROWS LAYER ═══ -->
 
@@ -166,7 +166,7 @@
   <!-- ═══ TEXT LABELS ═══ -->
 
   <!-- START -->
-  <text x="490" y="59" fill="white" font-size="11" font-weight="700" text-anchor="middle">Install Lomo Photo Viewer</text>
+  <text x="490" y="59" fill="white" font-size="11" font-weight="700" text-anchor="middle">Install LomoAgent</text>
   <text x="490" y="77" fill="#94a3b8" font-size="9" text-anchor="middle">Windows 10 / 11 · x64</text>
 
   <!-- Decision1 -->
@@ -201,7 +201,7 @@
 
   <!-- Merge box -->
   <text x="490" y="583" fill="white" font-size="12" font-weight="700" text-anchor="middle">App Installed</text>
-  <text x="490" y="601" fill="#94a3b8" font-size="9" text-anchor="middle">Lomo Photo Viewer on your system</text>
+  <text x="490" y="601" fill="#94a3b8" font-size="9" text-anchor="middle">LomoAgent on your system</text>
 
   <!-- First Launch -->
   <text x="490" y="674" fill="white" font-size="11" font-weight="600" text-anchor="middle">First Launch</text>
@@ -225,7 +225,7 @@
   <text x="490" y="1005" fill="#94a3b8" font-size="9" text-anchor="middle">Complete on-screen setup</text>
 
   <!-- END -->
-  <text x="490" y="1064" fill="white" font-size="13" font-weight="700" text-anchor="middle">Lomo Photo Viewer Ready</text>
+  <text x="490" y="1064" fill="white" font-size="13" font-weight="700" text-anchor="middle">LomoAgent Ready</text>
   <text x="490" y="1082" fill="#94a3b8" font-size="9" text-anchor="middle">Browse &amp; manage your photo library</text>
 
   <!-- ═══ LEGEND ═══ -->

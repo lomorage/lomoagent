@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicktomlin/tauri/refs/heads/dev/.schema/config.schema.json",
   "productName": "lomorage",
-  "version": "1.0.21",
+  "version": "1.0.22",
   "identifier": "com.lomoware.photoviewer",
   "build": {
     "devUrl": "http://localhost:3001",

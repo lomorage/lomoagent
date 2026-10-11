@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-Lomo Photo Viewer can use an "open-source core + paid services + first-party mobile app" business model. The desktop application can remain open source, while the Immich-derived web UI is used only as the photo viewing experience layer and must comply with AGPLv3 source disclosure obligations. Commercial revenue should come primarily from the first-party mobile app, cloud backup and sync services, managed deployment, technical support, and advanced operations features.
+LomoAgent can use an "open-source core + paid services + first-party mobile app" business model. The desktop application can remain open source, while the Immich-derived web UI is used only as the photo viewing experience layer and must comply with AGPLv3 source disclosure obligations. Commercial revenue should come primarily from the first-party mobile app, cloud backup and sync services, managed deployment, technical support, and advanced operations features.
 
 The key licensing conclusion is: if the mobile app is developed independently by the Lomo team and does not copy, link, or embed AGPL code from Immich mobile or Immich web, it does not automatically become AGPL just because it calls Lomo APIs or connects to the desktop service. Therefore, the mobile app can be sold, offered as a subscription product, or distributed as closed source. However, the modified Immich Web portion included in the desktop product must still provide corresponding source code.
 

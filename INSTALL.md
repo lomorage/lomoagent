@@ -1,4 +1,4 @@
-# Installing Lomo Photo Viewer
+# Installing LomoAgent on Windows
 
 ## Option 1 — One-line PowerShell install (recommended)
 
@@ -12,7 +12,7 @@ This will:
 1. Fetch the latest release from GitHub
 2. Download the installer automatically
 3. Install silently (no prompts)
-4. Launch Lomo Photo Viewer when done
+4. Launch LomoAgent when done
 
 > **Note:** If your system blocks script execution, run PowerShell as Administrator or prepend the bypass flag:
 > ```powershell
@@ -23,20 +23,9 @@ This will:
 
 ## Option 2 — Manual download
 
-### NSIS installer (`.exe`)
-
 1. Go to the [latest release](https://github.com/lomorage/lomoagent/releases/latest)
-2. Download `LomoPhotoViewer_*_x64-setup.exe`
-3. Double-click the file and follow the prompts
-
-### MSI package (`.msi`)
-
-1. Go to the [latest release](https://github.com/lomorage/lomoagent/releases/latest)
-2. Download `LomoPhotoViewer_*_x64_en-US.msi`
-3. Double-click to install, or deploy silently via:
-   ```powershell
-   msiexec /i LomoPhotoViewer_1.0.1_x64_en-US.msi /qn /norestart
-   ```
+2. Download `lomorage_*_x64-setup.exe`
+3. Double-click the file and follow the prompts (or install silently with `lomorage_*_x64-setup.exe /S`)
 
 ---
 
@@ -71,8 +60,4 @@ On a laptop you can turn on **Keep backing up with the lid closed (plugged in)**
 
 ## Uninstall
 
-Open **Settings → Apps → Installed apps**, search for **Lomo Photo Viewer**, and click **Uninstall**.  
-Or run:
-```powershell
-msiexec /x LomoPhotoViewer_1.0.1_x64_en-US.msi /qn
-```
+Open **Settings → Apps → Installed apps**, search for **lomorage**, and click **Uninstall**.
