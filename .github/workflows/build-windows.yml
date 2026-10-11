@@ -120,6 +120,8 @@ jobs:
 
       # ---- web + proxy + Tauri ----
       - name: Build installers
+        # Normally ~20 min; fail a hung build instead of waiting for the job's 120.
+        timeout-minutes: 45
         run: ./build-tauri.ps1 -Bundles nsis
 
       - name: Upload installers

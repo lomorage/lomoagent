@@ -154,7 +154,9 @@ if [ "$SKIP_PROXY" = false ]; then
     --outfile=dist/server.cjs --external:sharp
 
   echo "Packaging with pkg ($PKG_TARGET)..."
-  npx pkg dist/server.cjs --targets "$PKG_TARGET" --output "dist/$PROXY_EXE"
+  # --no-bytecode (needs --public): pkg's bytecode step, which runs each file through a
+  # separate node process, has hung a CI build for an hour; the bundle is plain JS anyway.
+  npx pkg --public --no-bytecode dist/server.cjs --targets "$PKG_TARGET" --output "dist/$PROXY_EXE"
   if [ "$IS_MACOS" = true ] && ! codesign --verify "dist/$PROXY_EXE" 2>/dev/null; then
     # Apple Silicon won't run an unsigned binary; ad-hoc sign it if pkg didn't.
     codesign --force --sign - "dist/$PROXY_EXE"
