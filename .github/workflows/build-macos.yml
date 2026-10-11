@@ -125,6 +125,8 @@ jobs:
         run: ./scripts/build-lomod-macos.sh < /dev/null
 
       - name: Build the app
+        # Normally ~10 min; fail a hung build instead of waiting for the job's 120.
+        timeout-minutes: 45
         run: ./build-tauri.sh --bundles app,dmg
         env:
           # The hosted macOS runner has 7 GB of RAM, and Node's default heap limit on it is too

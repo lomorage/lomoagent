@@ -47,7 +47,7 @@ After changing proxy TypeScript:
 ```bash
 cd proxy
 npx esbuild server.ts --bundle --platform=node --target=node20 --outfile=dist/server.cjs --external:sharp
-npx pkg dist/server.cjs --targets node22-win-x64 --output dist/proxy.exe
+npx pkg --public --no-bytecode dist/server.cjs --targets node22-win-x64 --output dist/proxy.exe
 cp dist/proxy.exe ../src-tauri/target/debug/proxy.exe
 ```
 

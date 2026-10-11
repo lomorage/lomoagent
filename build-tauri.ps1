@@ -117,7 +117,9 @@ if (-not $SkipProxy) {
     if ($LASTEXITCODE -ne 0) { throw "esbuild bundle failed" }
 
     Write-Host "Packaging with pkg..."
-    npx pkg dist/server.cjs --targets node22-win-x64 --output dist/proxy.exe
+    # --no-bytecode (needs --public): pkg's bytecode step, which runs each file through a
+    # separate node process, has hung a CI build for an hour; the bundle is plain JS anyway.
+    npx pkg --public --no-bytecode dist/server.cjs --targets node22-win-x64 --output dist/proxy.exe
     if ($LASTEXITCODE -ne 0) { throw "pkg build failed" }
 
     # Copy to Tauri resources
