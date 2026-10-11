@@ -24,7 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/lomorage/lomoagent/main/docker/inst
 5. 最后打印访问地址：
 
 ```
-  Lomo Photo Viewer is running.
+  LomoAgent is running.
 
   Web app (computer or phone browser):  http://192.168.1.20:3001
   Lomorage mobile app server address:   http://192.168.1.20:8000

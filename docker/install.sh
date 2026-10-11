@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# One-command install of Lomo Photo Viewer (Docker) on a Linux machine:
+# One-command install of LomoAgent (Docker) on a Linux machine:
 #
 #   curl -fsSL https://raw.githubusercontent.com/lomorage/lomoagent/main/docker/install.sh | bash
 #
@@ -215,7 +215,7 @@ else
 fi
 
 echo
-echo "  Lomo Photo Viewer is running."
+echo "  LomoAgent is running."
 echo
 for ip in $ips; do
   echo "  Web app (computer or phone browser):  http://$ip:$WEB_PORT"

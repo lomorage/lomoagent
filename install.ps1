@@ -15,7 +15,7 @@ try {
 
 function Write-Step {
     param([string]$Message)
-    Write-Host "[LomoPhotoViewer] $Message"
+    Write-Host "[LomoAgent] $Message"
 }
 
 function Get-Release {
@@ -25,7 +25,7 @@ function Get-Release {
     )
 
     $headers = @{
-        'User-Agent' = 'LomoPhotoViewer-Installer'
+        'User-Agent' = 'LomoAgent-Installer'
         'Accept' = 'application/vnd.github+json'
     }
 
@@ -42,7 +42,7 @@ function Find-InstallerAsset {
     param($Release)
 
     $patterns = @(
-        'LomoPhotoViewer_*_x64-setup.exe',
+        'lomorage_*_x64-setup.exe',
         '*setup.exe',
         '*.msi'
     )
@@ -106,13 +106,13 @@ Write-Step "Checking GitHub release metadata..."
 $release = Get-Release -Repo $Repo -Tag $Tag
 $asset = Find-InstallerAsset -Release $release
 
-$downloadDir = Join-Path $env:TEMP 'LomoPhotoViewer'
+$downloadDir = Join-Path $env:TEMP 'LomoAgent'
 New-Item -ItemType Directory -Path $downloadDir -Force | Out-Null
 $installerPath = Join-Path $downloadDir $asset.name
 
 Write-Step "Downloading $($asset.name) from $($release.tag_name)..."
 $downloadHeaders = @{
-    'User-Agent' = 'LomoPhotoViewer-Installer'
+    'User-Agent' = 'LomoAgent-Installer'
     'Accept' = 'application/octet-stream'
 }
 Invoke-WebRequest -Uri $asset.url -Headers $downloadHeaders -OutFile $installerPath
@@ -127,7 +127,7 @@ Install-Asset -InstallerPath $installerPath -AssetName $asset.name
 if (-not $NoLaunch) {
     $installedExe = Find-InstalledExe
     if ($installedExe) {
-        Write-Step "Launching Lomo Photo Viewer..."
+        Write-Step "Launching LomoAgent..."
         Start-Process -FilePath $installedExe | Out-Null
     } else {
         Write-Warning 'Install completed, but the app executable was not found automatically.'
