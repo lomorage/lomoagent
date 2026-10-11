@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { lomoFetch } from '../http-agent';
 import { fetchAssetSummaries, isFavoriteStatus } from '../lomo-assets';
 import { getLomoToken } from '../session';
+import { clearAlbumBucketCache } from './timeline';
 
 // LOMO_URL is now per-session via auth.serverUrl
 
@@ -16,8 +17,61 @@ function albumListCacheKey(serverUrl: string, userId: string): string {
   return `${serverUrl}\0${userId}`;
 }
 
+// lomod's own album list (titles only), per session too. Opening an album needs its title,
+// and lomod only lists all albums, so caching it makes opening albums fast.
+const lomoAlbumsCache = new Map<string, { albums: LomoAlbum[]; timestamp: number }>();
+const lomoAlbumsInflight = new Map<string, Promise<LomoAlbum[]>>();
+let lomoAlbumsGeneration = 0;
+
 export function clearAlbumListCache() {
   albumListCache.clear();
+  lomoAlbumsCache.clear();
+  lomoAlbumsInflight.clear();
+  lomoAlbumsGeneration++;
+}
+
+class LomoAlbumsError extends Error {
+  constructor(readonly status: number, body: string) {
+    super(`lomod album list failed: ${status} ${body.slice(0, 200)}`);
+  }
+}
+
+/** lomod's album list for this session, from the cache when fresh. Throws LomoAlbumsError. */
+async function getLomoAlbums(auth: LomoAuth): Promise<LomoAlbum[]> {
+  const key = albumListCacheKey(auth.serverUrl, auth.userId);
+  const cached = lomoAlbumsCache.get(key);
+  if (cached && Date.now() - cached.timestamp < ALBUM_LIST_CACHE_TTL) {
+    return cached.albums;
+  }
+
+  let inflight = lomoAlbumsInflight.get(key);
+  if (!inflight) {
+    const generation = lomoAlbumsGeneration;
+    inflight = (async () => {
+      const lomoRes = await lomoFetch(`${auth.serverUrl}/album?token=${auth.token}`);
+      if (!lomoRes.ok) {
+        throw new LomoAlbumsError(lomoRes.status, await lomoRes.text().catch(() => ''));
+      }
+      const albums = ((await lomoRes.json()) as LomoAlbumList).Albums || [];
+      // A change made while this was in flight cleared the cache; don't put the old list back
+      if (generation === lomoAlbumsGeneration) {
+        lomoAlbumsCache.set(key, { albums, timestamp: Date.now() });
+      }
+      return albums;
+    })().finally(() => {
+      if (lomoAlbumsInflight.get(key) === inflight) {
+        lomoAlbumsInflight.delete(key);
+      }
+    });
+    lomoAlbumsInflight.set(key, inflight);
+  }
+  return inflight;
+}
+
+/** After a change to albums: album lists, counts, thumbnails and album timelines are stale. */
+function albumsChanged() {
+  clearAlbumListCache();
+  clearAlbumBucketCache();
 }
 
 interface LomoAlbum {
@@ -166,14 +220,7 @@ albumsRouter.get('/', async (req, res) => {
       return res.json(cached.data);
     }
 
-    const lomoRes = await lomoFetch(`${auth.serverUrl}/album?token=${auth.token}`);
-    if (!lomoRes.ok) {
-      console.error(`[albums] list failed: ${lomoRes.status}`);
-      return res.status(lomoRes.status).json({ message: 'Failed to fetch albums' });
-    }
-
-    const data = await lomoRes.json() as LomoAlbumList;
-    const albums = data.Albums || [];
+    const albums = await getLomoAlbums(auth);
 
     // Fetch asset count and first asset for each album in parallel
     const results = await Promise.all(
@@ -185,6 +232,10 @@ albumsRouter.get('/', async (req, res) => {
 
     res.json(results);
   } catch (error) {
+    if (error instanceof LomoAlbumsError) {
+      console.error(`[albums] ${error.message}`);
+      return res.status(error.status).json({ message: 'Failed to fetch albums' });
+    }
     console.error('[albums] list error:', error);
     res.status(500).json({ message: 'Internal error' });
   }
@@ -204,25 +255,34 @@ albumsRouter.get('/:id', async (req, res) => {
   console.log(`[albums] GET detail: albumId=${albumId}, withoutAssets=${req.query.withoutAssets}`);
 
   try {
-    // Get album info
-    const lomoRes = await lomoFetch(`${auth.serverUrl}/album?token=${auth.token}`);
-    if (!lomoRes.ok) {
-      const body = await lomoRes.text().catch(() => '');
-      console.error(`[albums] detail list failed: albumId=${albumId} status=${lomoRes.status} body=${body.slice(0, 200)}`);
-      return res.status(lomoRes.status).json({ message: 'Failed to fetch albums' });
+    const withoutAssets = req.query.withoutAssets === 'true';
+
+    // Opening an album (withoutAssets) needs just what the album list has: answer from it
+    // when it's cached, e.g. right after the albums page or the sidebar loaded it.
+    if (withoutAssets) {
+      const cachedList = albumListCache.get(albumListCacheKey(auth.serverUrl, auth.userId));
+      const cachedAlbum = cachedList && Date.now() - cachedList.timestamp < ALBUM_LIST_CACHE_TTL
+        ? cachedList.data.find((a) => a.id === albumId)
+        : undefined;
+      if (cachedAlbum) {
+        return res.json(cachedAlbum);
+      }
     }
 
-    const data = await lomoRes.json() as LomoAlbumList;
-    const album = (data.Albums || []).find((a) => String(a.ID) === albumId);
+    // Get album info, the asset count and the first asset (the thumbnail) all at once
+    const [albums, headRes, firstRes] = await Promise.all([
+      getLomoAlbums(auth),
+      lomoFetch(`${auth.serverUrl}/album/${albumId}/assets?token=${auth.token}`, { method: 'HEAD' }),
+      withoutAssets
+        ? lomoFetch(`${auth.serverUrl}/album/${albumId}/assets?token=${auth.token}&page=0&limit=1`)
+        : undefined,
+    ]);
+    const album = albums.find((a) => String(a.ID) === albumId);
     if (!album) {
       return res.status(404).json({ message: 'Album not found' });
     }
 
-    // Get asset count
     let assetCount = 0;
-    const headRes = await lomoFetch(`${auth.serverUrl}/album/${albumId}/assets?token=${auth.token}`, {
-      method: 'HEAD',
-    });
     const countHeader = headRes.headers.get('x-total-count');
     if (countHeader) {
       assetCount = parseInt(countHeader, 10);
@@ -231,7 +291,6 @@ albumsRouter.get('/:id', async (req, res) => {
     // Get assets if not explicitly excluded
     let assets: any[] = [];
     let thumbnailAssetId: string | null = null;
-    const withoutAssets = req.query.withoutAssets === 'true';
 
     if (!withoutAssets && assetCount > 0) {
       const assetsRes = await lomoFetch(
@@ -263,21 +322,20 @@ albumsRouter.get('/:id', async (req, res) => {
           exifInfo: {},
         }));
       }
-    } else if (assetCount > 0) {
-      // Just get the first asset for thumbnail
-      const assetsRes = await lomoFetch(
-        `${auth.serverUrl}/album/${albumId}/assets?token=${auth.token}&page=0&limit=1`,
-      );
-      if (assetsRes.ok) {
-        const assetNames = await assetsRes.json() as string[];
-        thumbnailAssetId = assetNames[0] || null;
-      }
+    } else if (assetCount > 0 && firstRes?.ok) {
+      // Just the first asset, for the thumbnail
+      const assetNames = await firstRes.json() as string[];
+      thumbnailAssetId = assetNames[0] || null;
     }
 
     const result = toAlbumResponseDto(album, auth.userId, auth.username, assetCount, thumbnailAssetId, assets);
     console.log(`[albums] detail response: id=${result.id}, assetCount=${result.assetCount}, albumName=${result.albumName}`);
     res.json(result);
   } catch (error) {
+    if (error instanceof LomoAlbumsError) {
+      console.error(`[albums] detail: albumId=${albumId} ${error.message}`);
+      return res.status(error.status).json({ message: 'Failed to fetch albums' });
+    }
     console.error('[albums] detail error:', error);
     res.status(500).json({ message: 'Internal error' });
   }
@@ -311,6 +369,7 @@ albumsRouter.post('/', async (req, res) => {
       return res.status(lomoRes.status).json({ message: 'Failed to create album' });
     }
 
+    albumsChanged();
     const album = await lomoRes.json() as LomoAlbum;
     res.status(201).json(toAlbumResponseDto(album, auth.userId, auth.username, 0, null));
   } catch (error) {
@@ -350,9 +409,8 @@ albumsRouter.patch('/:id', async (req, res) => {
     }
 
     // Fetch the updated album to return
-    const listRes = await lomoFetch(`${auth.serverUrl}/album?token=${auth.token}`);
-    const data = await listRes.json() as LomoAlbumList;
-    const album = (data.Albums || []).find((a) => String(a.ID) === albumId);
+    albumsChanged();
+    const album = (await getLomoAlbums(auth)).find((a) => String(a.ID) === albumId);
 
     if (album) {
       res.json(toAlbumResponseDto(album, auth.userId, auth.username, 0, null));
@@ -384,6 +442,7 @@ albumsRouter.delete('/:id', async (req, res) => {
       console.error(`[albums] delete failed: ${lomoRes.status}`);
       return res.status(lomoRes.status).json({ message: 'Failed to delete album' });
     }
+    albumsChanged();
 
     res.status(200).json({});
   } catch (error) {
@@ -422,6 +481,7 @@ albumsRouter.put('/:id/assets', async (req, res) => {
       console.error(`[albums] add assets failed: ${lomoRes.status} ${errorText}`);
       return res.status(lomoRes.status).json({ message: 'Failed to add assets' });
     }
+    albumsChanged();
 
     // Return success response matching Immich format
     const results = (ids || []).map((id: string) => ({
@@ -464,6 +524,7 @@ albumsRouter.delete('/:id/assets', async (req, res) => {
       console.error(`[albums] remove assets failed: ${lomoRes.status} ${errorText}`);
       return res.status(lomoRes.status).json({ message: 'Failed to remove assets' });
     }
+    albumsChanged();
 
     const results = (ids || []).map((id: string) => ({
       id,
