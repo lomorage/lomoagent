@@ -1,10 +1,10 @@
-# Lomo Photo Viewer on a Linux machine -- see README.md next to this file.
+# LomoAgent on a Linux machine -- see README.md next to this file.
 #
 #   docker compose up -d
 #   docker compose logs      # the web address; the first visit there sets the admin password
 services:
   lomo:
-    image: ghcr.io/lomorage/lomo-photo-viewer:test
+    image: ghcr.io/lomorage/lomo-photo-viewer:latest
     container_name: lomo-photo-viewer
     restart: unless-stopped
     # Host networking: phones and computers on the LAN reach it at this machine's IP, the

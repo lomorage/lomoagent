@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================
-# Build Lomo Photo Viewer — Tauri v2 Desktop App (macOS, or GitBash on Windows)
+# Build LomoAgent — Tauri v2 Desktop App (macOS, or GitBash on Windows)
 # ============================================================
 # Usage:
 #   ./build-tauri.sh              # Full build (web + proxy + tauri)
@@ -64,7 +64,7 @@ while [ $# -gt 0 ]; do
       BUNDLES="$1"
       shift ;;
     --help|-h)
-      echo "Build Lomo Photo Viewer Tauri App"
+      echo "Build LomoAgent Tauri App"
       echo ""
       echo "Usage: ./build-tauri.sh [options]"
       echo ""
@@ -91,7 +91,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-info "=== Building Lomo Photo Viewer Tauri App ==="
+info "=== Building LomoAgent Tauri App ==="
 
 # ---- Step 1: Build Immich web frontend ----
 if [ "$SKIP_WEB" = false ]; then

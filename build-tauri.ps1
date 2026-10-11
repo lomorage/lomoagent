@@ -1,5 +1,5 @@
 # ============================================================
-# Build Lomo Photo Viewer — Tauri v2 Desktop App
+# Build LomoAgent — Tauri v2 Desktop App
 # ============================================================
 # Usage:
 #   .\build-tauri.ps1              # Full build (web + proxy + tauri)
@@ -24,7 +24,7 @@ $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 if ($Help) {
     Write-Host @"
-Build Lomo Photo Viewer Tauri App
+Build LomoAgent Tauri App
 
 Usage: .\build-tauri.ps1 [options]
 
@@ -51,7 +51,7 @@ Directory structure expected:
     exit 0
 }
 
-Write-Host "=== Building Lomo Photo Viewer Tauri App ===" -ForegroundColor Cyan
+Write-Host "=== Building LomoAgent Tauri App ===" -ForegroundColor Cyan
 
 # ---- Step 1: Build Immich web frontend ----
 if (-not $SkipWeb) {

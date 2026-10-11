@@ -15,7 +15,7 @@
 #   LOMO_DATA_DIR        database, logs, settings                   default: $LOMO_DIR/data
 #   LOMO_ADMIN_USER      first account's user name                  default: admin
 #   LOMO_ADMIN_PASSWORD  first account's password        default: chosen on the first web visit
-#   LOMO_IMAGE           image to run          default: ghcr.io/lomorage/lomo-photo-viewer:test
+#   LOMO_IMAGE           image to run          default: ghcr.io/lomorage/lomo-photo-viewer:latest
 #   TZ                   time zone for photo dates                  default: this machine's
 #   LOMO_WEB_PORT        web app port                               default: 3001
 #   LOMO_LOMOD_PORT      lomod port (Lomorage mobile apps)          default: 8000
@@ -44,7 +44,7 @@ if [ -f "$LOMO_DIR/.env" ]; then
     esac
   done < "$LOMO_DIR/.env"
 fi
-LOMO_IMAGE="${LOMO_IMAGE:-ghcr.io/lomorage/lomo-photo-viewer:test}"
+LOMO_IMAGE="${LOMO_IMAGE:-ghcr.io/lomorage/lomo-photo-viewer:latest}"
 LOMO_PHOTOS_DIR="${LOMO_PHOTOS_DIR:-$LOMO_DIR/photos}"
 LOMO_DATA_DIR="${LOMO_DATA_DIR:-$LOMO_DIR/data}"
 LOMO_ADMIN_USER="${LOMO_ADMIN_USER:-admin}"

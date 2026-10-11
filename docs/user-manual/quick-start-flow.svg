@@ -28,7 +28,7 @@
   <rect width="100%" height="100%" fill="#0f172a"/>
   <rect width="100%" height="100%" fill="url(#grid)"/>
 
-  <text x="40" y="48" class="title">Lomo Photo Viewer 快速上手流程</text>
+  <text x="40" y="48" class="title">LomoAgent 快速上手流程</text>
   <text x="40" y="72" class="subtitle">从首次启动到日常使用的推荐路径</text>
 
   <rect x="380" y="100" width="220" height="56" rx="25" fill="#0f172a"/>

@@ -1,4 +1,4 @@
-# Lomo Photo Viewer — Linux / Docker 版
+# LomoAgent — Linux / Docker 版
 
 一个镜像里包含了和 Windows 桌面版相同的组件（不含桌面外壳）：
 
@@ -49,7 +49,7 @@ curl -fsSL https://raw.githubusercontent.com/lomorage/lomoagent/main/docker/inst
 | `LOMO_PHOTOS_DIR` | `$LOMO_DIR/photos` | 照片存放位置 |
 | `LOMO_DATA_DIR` | `$LOMO_DIR/data` | 数据库、日志、设置 |
 | `LOMO_ADMIN_USER` / `LOMO_ADMIN_PASSWORD` | `admin` / 空（第一次打开网页时设置） | 首个账号；填了密码就直接创建，跳过网页设置 |
-| `LOMO_IMAGE` | `ghcr.io/lomorage/lomo-photo-viewer:test` | 要运行的镜像 |
+| `LOMO_IMAGE` | `ghcr.io/lomorage/lomo-photo-viewer:latest` | 要运行的镜像 |
 | `TZ` | 本机时区 | 照片日期使用的时区 |
 | `LOMO_WEB_PORT` / `LOMO_LOMOD_PORT` / `LOMO_WEBDAV_PORT` | `3001` / `8000` / `8004` | 网页、lomod（Lomorage App 连接）、WebDAV 的端口 |
 | `LOMO_SKIP_DOCKER_INSTALL=1` | — | 没装 Docker 时报错退出，不自动安装 |
@@ -87,7 +87,7 @@ docker compose logs
 docker run -d --name lomo-photo-viewer --restart unless-stopped --network host \
   -e TZ=Asia/Shanghai \
   -v "$PWD/lomo/photos:/photos" -v "$PWD/lomo/data:/data" \
-  ghcr.io/lomorage/lomo-photo-viewer:test
+  ghcr.io/lomorage/lomo-photo-viewer:latest
 ```
 
 ## 使用

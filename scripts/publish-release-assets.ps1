@@ -18,7 +18,7 @@ if (-not $Tag) {
 
 if (-not $InstallerPath) {
     $config = Get-Content 'src-tauri\tauri.conf.json' | ConvertFrom-Json
-    $InstallerPath = "src-tauri\target\release\bundle\nsis\LomoPhotoViewer_$($config.version)_x64-setup.exe"
+    $InstallerPath = "src-tauri\target\release\bundle\nsis\lomorage_$($config.version)_x64-setup.exe"
 }
 
 $resolvedInstaller = (Resolve-Path $InstallerPath).Path

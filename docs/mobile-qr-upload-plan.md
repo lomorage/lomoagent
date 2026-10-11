@@ -1,4 +1,4 @@
-# Mobile QR Upload For Lomo Photo Viewer
+# Mobile QR Upload For LomoAgent
 
 ## Summary
 
@@ -34,7 +34,7 @@ Click QR Upload
 
 Mobile: /mobile-upload
 +------------------------------+
-| Lomo Photo Viewer Upload     |
+| LomoAgent Upload     |
 | Username                     |
 | Password                     |
 | [Sign in]                    |

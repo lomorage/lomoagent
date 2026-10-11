@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# Lomo Photo Viewer for Linux servers: lomod (photo storage, built from submodules/lomod) with
+# LomoAgent for Linux servers: lomod (photo storage, built from submodules/lomod) with
 # exiftool and ffmpeg, plus the Immich-based web app and its proxy -- the same pieces as the
 # Windows desktop app, without the Tauri shell. Build from the repository root:
 #
