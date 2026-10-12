@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as os from 'os';
 import { lomoFetch } from '../http-agent';
+import { clearAssetDateCache } from '../lomo-assets';
 import { getLomoToken } from '../session';
 import { clearAlbumListCache } from './albums';
 import { clearAlbumBucketCache } from './timeline';
@@ -508,6 +509,7 @@ stubsRouter.post('/lomo/refresh', (req, res) => {
   }
   clearAlbumBucketCache();
   clearAlbumListCache();
+  clearAssetDateCache();
   res.status(204).end();
 });
 

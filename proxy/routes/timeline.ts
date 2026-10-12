@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { lomoFetch } from '../http-agent';
 import { getCachedAssetRatios, prefetchMissingAssetRatios, type AssetCacheEntry } from '../dimensions-cache';
 import {
+  fetchAlbumAssetNames,
   fetchAssetDateInfos,
   fetchAssetStatusMapForDates,
   isFavoriteStatus,
@@ -261,14 +262,7 @@ async function fetchAlbumAssetsByMonth(
   }
 
   // Get all asset names in the album
-  const assetsRes = await lomoFetch(
-    `${serverUrl}/album/${albumId}/assets?token=${token}&page=0&limit=10000`,
-  );
-  if (!assetsRes.ok) {
-    throw new Error(`Failed to fetch album assets: ${assetsRes.status}`);
-  }
-
-  const assetNames = await assetsRes.json() as string[];
+  const assetNames = await fetchAlbumAssetNames(serverUrl, token, albumId);
   const byMonth = new Map<string, LomoAssetDateInfo[]>();
   const assets = await fetchAssetDateInfos(serverUrl, token, assetNames);
 
