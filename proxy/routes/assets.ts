@@ -25,7 +25,7 @@ function getSharp(): any {
   return _sharp;
 }
 import { cacheDimensions, readCachedThumbhash, computeAndStoreThumbhash } from '../dimensions-cache';
-import { fetchAssetStatusMapForDates, isFavoriteStatus } from '../lomo-assets';
+import { clearAssetDateCache, fetchAssetStatusMapForDates, isFavoriteStatus } from '../lomo-assets';
 import { getLomoToken } from '../session';
 import { clearAlbumBucketCache } from './timeline';
 import { clearAlbumListCache } from './albums';
@@ -883,6 +883,7 @@ assetsRouter.put('/:id', async (req, res) => {
         return res.status(updateRes.status).json({ message: 'Failed to update asset date' });
       }
 
+      clearAssetDateCache(auth.serverUrl, [assetName]);
       clearAlbumBucketCache();
     }
 

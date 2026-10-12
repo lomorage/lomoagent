@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { lomoFetch } from '../http-agent';
-import { fetchAssetSummaries, isFavoriteStatus } from '../lomo-assets';
+import { fetchAlbumAssetNames, fetchAssetSummaries, isFavoriteStatus } from '../lomo-assets';
 import { getLomoToken } from '../session';
 import { clearAlbumBucketCache } from './timeline';
 
@@ -293,35 +293,30 @@ albumsRouter.get('/:id', async (req, res) => {
     let thumbnailAssetId: string | null = null;
 
     if (!withoutAssets && assetCount > 0) {
-      const assetsRes = await lomoFetch(
-        `${auth.serverUrl}/album/${albumId}/assets?token=${auth.token}&page=0&limit=10000`,
-      );
-      if (assetsRes.ok) {
-        const assetNames = await assetsRes.json() as string[];
-        const summaries = await fetchAssetSummaries(auth.serverUrl, auth.token, assetNames);
-        thumbnailAssetId = summaries[0]?.name || null;
-        assets = summaries.map((asset) => ({
-          id: asset.name,
-          deviceAssetId: asset.name,
-          ownerId: auth.userId,
-          deviceId: 'lomo',
-          type: isImageExt(asset.name) ? 'IMAGE' : 'VIDEO',
-          originalPath: asset.name,
-          originalFileName: asset.name,
-          originalMimeType: isImageExt(asset.name) ? 'image/jpeg' : 'video/mp4',
-          thumbhash: null,
-          fileCreatedAt: asset.date,
-          fileModifiedAt: asset.date,
-          createdAt: asset.date,
-          updatedAt: asset.date,
-          isFavorite: isFavoriteStatus(asset.status),
-          isArchived: false,
-          duration: '0:00:00.000000',
-          checksum: '',
-          stackCount: null,
-          exifInfo: {},
-        }));
-      }
+      const assetNames = await fetchAlbumAssetNames(auth.serverUrl, auth.token, albumId);
+      const summaries = await fetchAssetSummaries(auth.serverUrl, auth.token, assetNames);
+      thumbnailAssetId = summaries[0]?.name || null;
+      assets = summaries.map((asset) => ({
+        id: asset.name,
+        deviceAssetId: asset.name,
+        ownerId: auth.userId,
+        deviceId: 'lomo',
+        type: isImageExt(asset.name) ? 'IMAGE' : 'VIDEO',
+        originalPath: asset.name,
+        originalFileName: asset.name,
+        originalMimeType: isImageExt(asset.name) ? 'image/jpeg' : 'video/mp4',
+        thumbhash: null,
+        fileCreatedAt: asset.date,
+        fileModifiedAt: asset.date,
+        createdAt: asset.date,
+        updatedAt: asset.date,
+        isFavorite: isFavoriteStatus(asset.status),
+        isArchived: false,
+        duration: '0:00:00.000000',
+        checksum: '',
+        stackCount: null,
+        exifInfo: {},
+      }));
     } else if (assetCount > 0 && firstRes?.ok) {
       // Just the first asset, for the thumbnail
       const assetNames = await firstRes.json() as string[];
