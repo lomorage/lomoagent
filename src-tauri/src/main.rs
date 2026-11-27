@@ -3,6 +3,7 @@
 
 mod backup_watch;
 mod lid_power;
+mod lomoagent;
 
 use rusqlite::{params, Connection, OpenFlags, OptionalExtension};
 use std::io::{self, Read as _};
@@ -565,17 +566,21 @@ fn run_startup(
     );
     std::fs::write(&log_path, post_extract_log).ok();
 
-    #[cfg(target_os = "windows")]
-    {
-        update_startup_progress(&app, 48, "Cleaning up previous local backend");
-        let _ = hidden_command("taskkill")
-            .args(["/F", "/IM", "lomod.exe"])
-            .output();
-        std::thread::sleep(Duration::from_millis(300));
-    }
+    // Only a lomod this app left running is stopped (it used to be every lomod.exe, Lomoagent's too: the viewer
+    // then served the phones from a second database).
+    update_startup_progress(&app, 48, "Cleaning up previous local backend");
+    kill_stale_lomod(&data_dir);
 
-    update_startup_progress(&app, 60, "Starting local backend");
-    let lomod = if config.active_backend_mode == BackendMode::Local {
+    let lomod = if let Some(agent) = agent_backend(&config) {
+        update_startup_progress(&app, 60, "Connecting to Lomoagent's backend");
+        println!(
+            "[tauri] Lomoagent runs the backend: using its lomod and database {:?}",
+            agent.assets_db()
+        );
+        lomoagent::ensure_running(&agent, LOMOD_PORT, Duration::from_secs(90));
+        None
+    } else if config.active_backend_mode == BackendMode::Local {
+        update_startup_progress(&app, 60, "Starting local backend");
         start_lomod(&resource_dir, &data_dir, &photos_dir)
     } else {
         None
@@ -712,8 +717,55 @@ fn runtime_data_dir(data_dir: &std::path::Path) -> PathBuf {
     clean_path(&data_dir.join("data"))
 }
 
+/// Lomoagent, when it is installed and the local backend is chosen: then its lomod is the backend and its
+/// database the library (see lomoagent.rs); the viewer never starts a lomod of its own.
+fn agent_backend(config: &AppConfig) -> Option<lomoagent::Installation> {
+    if config.active_backend_mode == BackendMode::Local {
+        lomoagent::installation()
+    } else {
+        None
+    }
+}
+
+/// The database of the local backend: Lomoagent's when it runs the backend, else the viewer's own.
 fn assets_db_path(data_dir: &std::path::Path) -> PathBuf {
+    if let Some(agent) = agent_backend(&get_app_config(data_dir)) {
+        return clean_path(&agent.assets_db());
+    }
     runtime_data_dir(data_dir).join("var").join("assets.db")
+}
+
+/// A library's identity (conf.uuid): a copy of a database has the uuid of the database it was copied from.
+fn library_uuid(db_path: &std::path::Path) -> Option<String> {
+    let conn = open_assets_db_at(db_path).ok()?;
+    conn.query_row("SELECT value FROM conf WHERE key = 'uuid'", [], |row| {
+        row.get::<_, String>(0)
+    })
+    .optional()
+    .ok()
+    .flatten()
+    .filter(|uuid| !uuid.trim().is_empty())
+}
+
+/// The selected database is the agent's own, or a copy of it (the nightly copies in each user's folder).
+fn is_agent_library(agent: &lomoagent::Installation, db_path: &std::path::Path) -> bool {
+    let agent_db = clean_path(&agent.assets_db());
+    if path_matches(&agent_db, db_path) {
+        return true;
+    }
+    match (library_uuid(&agent_db), library_uuid(db_path)) {
+        (Some(a), Some(b)) => a == b,
+        _ => false,
+    }
+}
+
+fn agent_backend_message(agent: &lomoagent::Installation) -> String {
+    format!(
+        "Lomoagent runs the Lomorage backend on this computer (its library is {}). The viewer uses that \
+         library; a second one would make the phones upload photos twice. Change folders and libraries in \
+         Lomoagent.",
+        path_str(&agent.assets_db())
+    )
 }
 
 fn default_lomoware_assets_db_paths() -> Vec<PathBuf> {
@@ -1007,6 +1059,17 @@ fn path_matches(a: &std::path::Path, b: &std::path::Path) -> bool {
     path_str(a).to_lowercase() == path_str(b).to_lowercase()
 }
 
+/// Two spellings of one folder: case, separators and a trailing separator aside ("L:" and "L:\").
+fn same_dir(a: &std::path::Path, b: &std::path::Path) -> bool {
+    let norm = |p: &std::path::Path| {
+        path_str(p)
+            .replace('/', "\\")
+            .trim_end_matches('\\')
+            .to_lowercase()
+    };
+    norm(a) == norm(b)
+}
+
 fn sqlite_string_literal(value: &str) -> String {
     format!("'{}'", value.replace('\'', "''"))
 }
@@ -1101,7 +1164,8 @@ fn local_user_exists(data_dir: &std::path::Path) -> Result<bool, String> {
         return Ok(false);
     }
 
-    let conn = open_assets_db(data_dir)?;
+    // read-only: this may be the database of Lomoagent's running lomod
+    let conn = open_assets_db_at(&db_path)?;
     let count: i64 = conn
         .query_row("SELECT COUNT(1) FROM user", [], |row| row.get(0))
         .map_err(|e| format!("Failed to query local users: {}", e))?;
@@ -1114,7 +1178,7 @@ fn primary_user_home_dir(data_dir: &std::path::Path) -> Result<Option<String>, S
         return Ok(None);
     }
 
-    let conn = open_assets_db(data_dir)?;
+    let conn = open_assets_db_at(&db_path)?;
     conn.query_row(
         "SELECT home_dir
          FROM user
@@ -1257,6 +1321,20 @@ fn start_lomod(
     data_dir: &std::path::Path,
     photos_dir: &std::path::Path,
 ) -> Option<Child> {
+    // One backend, one database: never a lomod of our own beside Lomoagent's, or beside any lomod that already
+    // answers on the port (it would not get the port, but would still open its database and the photo folder).
+    if agent_backend(&get_app_config(data_dir)).is_some() {
+        println!("[tauri] Lomoagent runs lomod on this computer: not starting a second one");
+        return None;
+    }
+    if lomoagent::port_open(LOMOD_PORT) {
+        println!(
+            "[tauri] A lomod already answers on port {}: using it, not starting a second one",
+            LOMOD_PORT
+        );
+        return None;
+    }
+
     let lomod_dir = clean_path(&resource_dir.join("lomod"));
     let lomod_exe = lomod_dir.join(LOMOD_EXE);
 
@@ -1294,6 +1372,7 @@ fn start_lomod(
     match cmd.spawn() {
         Ok(child) => {
             println!("[tauri] lomod started (pid {})", child.id());
+            write_lomod_pid(data_dir, child.id());
             Some(child)
         }
         Err(e) => {
@@ -1302,6 +1381,41 @@ fn start_lomod(
         }
     }
 }
+
+fn lomod_pid_path(data_dir: &std::path::Path) -> PathBuf {
+    data_dir.join("lomod.pid")
+}
+
+fn write_lomod_pid(data_dir: &std::path::Path, pid: u32) {
+    std::fs::write(lomod_pid_path(data_dir), pid.to_string()).ok();
+}
+
+/// A lomod this app started and did not stop (it crashed or was killed): stopped. Only that one: a lomod run by
+/// Lomoagent or anyone else is left alone.
+#[cfg(target_os = "windows")]
+fn kill_stale_lomod(data_dir: &std::path::Path) {
+    let pid_path = lomod_pid_path(data_dir);
+    let pid = std::fs::read_to_string(&pid_path).unwrap_or_default();
+    std::fs::remove_file(&pid_path).ok();
+    let Ok(pid) = pid.trim().parse::<u32>() else {
+        return;
+    };
+    // the pid may have been reused by another program since
+    let Some(image_name) = process_image_name(pid) else {
+        return;
+    };
+    if !image_name.eq_ignore_ascii_case(LOMOD_EXE) {
+        return;
+    }
+    println!("[tauri] Stopping the lomod this app left running (pid {})", pid);
+    let _ = hidden_command("taskkill")
+        .args(["/F", "/PID", &pid.to_string()])
+        .output();
+    std::thread::sleep(Duration::from_millis(300));
+}
+
+#[cfg(not(target_os = "windows"))]
+fn kill_stale_lomod(_data_dir: &std::path::Path) {}
 
 /// Extract web.zip from resources to data_dir/web if not already extracted
 /// or if the zip is newer than the extracted directory.
@@ -1524,11 +1638,13 @@ fn start_proxy(
     }
 }
 
+/// Stops the lomod this app started (never Lomoagent's: that one is not our child).
 fn kill_lomod(state: &mut AppState) {
     if let Some(ref mut p) = state.lomod_process {
         println!("[tauri] Killing lomod (pid {})", p.id());
         p.kill().ok();
         p.wait().ok();
+        std::fs::remove_file(lomod_pid_path(&state.data_dir)).ok();
     }
     state.lomod_process = None;
 }
@@ -1824,8 +1940,10 @@ fn save_backend_preference(
 
     save_config(&data_dir, &config)?;
 
-    // Start lomod if switching to local and it isn't running; never kill it.
-    if next_mode == BackendMode::Local && state.lomod_process.is_none() {
+    // Start lomod if switching to local and it isn't running; never kill it. With Lomoagent, its lomod.
+    if let Some(agent) = agent_backend(&config) {
+        lomoagent::ensure_running(&agent, LOMOD_PORT, Duration::from_secs(30));
+    } else if next_mode == BackendMode::Local && state.lomod_process.is_none() {
         let photos_dir = resolved_local_photos_dir(&data_dir, &config);
         state.lomod_process = start_lomod(&resource_dir, &data_dir, &photos_dir);
     }
@@ -1888,6 +2006,9 @@ fn complete_initial_setup(
     let config = get_app_config(&data_dir);
     if config.active_backend_mode != BackendMode::Local {
         return Err("Switch to the bundled local backend before running desktop setup".into());
+    }
+    if let Some(agent) = agent_backend(&config) {
+        return Err(agent_backend_message(&agent));
     }
 
     if is_initial_setup_complete(&data_dir) {
@@ -2003,6 +2124,35 @@ fn use_existing_local_library(
     let selected_photos_path =
         photos_dir_from_home_dir(&selected_user.home_dir).unwrap_or(photos_path);
 
+    // Lomoagent's library, or one of its copies (it keeps one in each user's folder): use Lomoagent's running
+    // lomod and its database as they are. Copying the database for a lomod of our own is what made two
+    // databases hand out the same ids and the phones upload photos twice.
+    if let Some(agent) = lomoagent::installation() {
+        if !is_agent_library(&agent, &selected_db_path) {
+            return Err(agent_backend_message(&agent));
+        }
+        let mut config = previous_config.clone();
+        config.active_backend_mode = BackendMode::Local;
+        config.local.photos_dir = path_str(&selected_photos_path);
+        config.local.setup_completed = true;
+        save_config(&data_dir, &config)?;
+        kill_lomod(&mut state); // a lomod of our own, if one was running
+        if !lomoagent::ensure_running(&agent, LOMOD_PORT, Duration::from_secs(90)) {
+            return Err("Lomoagent's backend did not start. Start Lomoagent and try again.".into());
+        }
+        restart_proxy(&mut state, &backend_url_from_config(&config));
+        println!(
+            "[tauri] Using Lomoagent's library: db={} user={}",
+            path_str(&agent.assets_db()),
+            selected_user.user_name
+        );
+        return Ok(settings_with_selected_user(
+            &data_dir,
+            &selected_user,
+            &clean_path(&agent.assets_db()),
+        ));
+    }
+
     let runtime_db_path = assets_db_path(&data_dir);
     let selected_is_runtime_db = path_matches(&selected_db_path, &runtime_db_path);
 
@@ -2077,19 +2227,30 @@ fn use_existing_local_library(
         config.local.photos_dir
     );
 
-    let mut settings = app_settings_json(&data_dir);
+    Ok(settings_with_selected_user(
+        &data_dir,
+        &selected_user,
+        &selected_db_path,
+    ))
+}
+
+fn settings_with_selected_user(
+    data_dir: &std::path::Path,
+    user: &LocalLibraryDbUser,
+    db_path: &std::path::Path,
+) -> serde_json::Value {
+    let mut settings = app_settings_json(data_dir);
     if let Some(object) = settings.as_object_mut() {
         object.insert(
             "selected_local_user".into(),
             serde_json::json!({
-                "user_name": selected_user.user_name,
-                "home_dir": selected_user.home_dir,
-                "db_path": path_str(&selected_db_path),
+                "user_name": user.user_name,
+                "home_dir": user.home_dir,
+                "db_path": path_str(db_path),
             }),
         );
     }
-
-    Ok(settings)
+    settings
 }
 
 #[tauri::command]
@@ -2106,6 +2267,9 @@ fn create_new_local_library(
 
     if previous_config.active_backend_mode != BackendMode::Local {
         return Err("Switch to the bundled local backend before creating a local library".into());
+    }
+    if let Some(agent) = agent_backend(&previous_config) {
+        return Err(agent_backend_message(&agent));
     }
 
     let next_dir = photos_dir.trim();
@@ -2208,6 +2372,25 @@ fn save_app_settings(
             println!("[tauri] Settings saved: backend_mode=remote");
         }
         BackendMode::Local => {
+            if let Some(agent) = lomoagent::installation() {
+                // The backend and its folder are Lomoagent's: only switching (back) to it is done here.
+                save_config(&data_dir, &config)?; // local now: the library below is Lomoagent's
+                let library_dir = resolved_local_photos_dir(&data_dir, &config);
+                let requested = photos_dir.trim();
+                if !requested.is_empty() && !same_dir(&PathBuf::from(requested), &library_dir) {
+                    save_config(&data_dir, &previous_config).ok();
+                    return Err(agent_backend_message(&agent));
+                }
+                config.local.photos_dir = path_str(&library_dir);
+                config.local.setup_completed = true;
+                save_config(&data_dir, &config)?;
+                kill_lomod(&mut state); // a lomod of our own, if one was running
+                lomoagent::ensure_running(&agent, LOMOD_PORT, Duration::from_secs(30));
+                restart_proxy(&mut state, &backend_url_from_config(&config));
+                println!("[tauri] Settings saved: backend_mode=local (Lomoagent's backend)");
+                return Ok(app_settings_json(&data_dir));
+            }
+
             let next_dir = photos_dir.trim();
             if next_dir.is_empty() {
                 return Err("Photos directory is required for the bundled local backend".into());

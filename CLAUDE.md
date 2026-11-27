@@ -131,6 +131,13 @@ Three commands registered via `invoke_handler`:
 
 `withGlobalTauri: true` in `tauri.conf.json` + `remote.urls` in `capabilities/default.json` enable `window.__TAURI__` in the proxy-served pages.
 
+### One lomod, one database (Lomoagent on the same computer)
+When Lomoagent (the Windows tray app, `%LOCALAPPDATA%\Lomoware\Lomoagent\lomoagent.exe`) is installed, it runs lomod on port 8000 with `--base %LOCALAPPDATA%\lomoware\`, and the phones back up to it. In local mode the viewer then uses **that** lomod and **that** database (`src-tauri/src/lomoagent.rs`, `agent_backend()` in `main.rs`): it never starts a lomod of its own, never kills Lomoagent's (only a lomod it started itself, by `lomod.pid`), never copies the database for itself (adopting Lomoagent's library or one of its copies in a user's folder, recognised by `conf.uuid`, just uses the running backend), and leaves creating libraries and changing the photo folder to Lomoagent. `assets_db_path()` then points at Lomoagent's database, which the viewer only reads.
+
+Why: two lomods with two copies of one database on one photo folder hand out the same asset ids to different photos, and a phone that reaches the second one uploads again what the first already has. This happened on a real library (the viewer used to `taskkill /IM lomod.exe` at start, then run its own lomod on a `VACUUM INTO` copy): 1,341 ids given twice, a few hundred photos stored twice.
+
+Without Lomoagent nothing changes: the viewer runs its bundled lomod on its own database (`<AppData>\com.lomoware.photoviewer\data`). In either case it never starts a lomod while one already answers on port 8000.
+
 ### Config persistence
 `C:\Users\<user>\AppData\Roaming\com.lomoware.photoviewer\config.json`:
 ```json
