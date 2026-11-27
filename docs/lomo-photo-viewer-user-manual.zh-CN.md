@@ -18,6 +18,8 @@ Lomo Photo Viewer 是一个 Windows 桌面照片浏览器，桌面外壳由 Taur
 它支持两种使用方式：
 
 - **本机模式（This machine）**：照片库保存在当前电脑上，程序会自动启动内置的 `lomod`，默认服务地址是 `http://localhost:8000`。
+  如果这台电脑装了 **Lomoagent**（托盘里的 Lomorage 程序），它已经在运行 `lomod`、手机也在往它备份：本程序直接使用 Lomoagent 的 `lomod` 和它的照片库，
+  不会再启动第二个 `lomod`，也不会复制一份数据库。照片文件夹和照片库要在 Lomoagent 里设置。
 - **远程模式（Remote server）**：桌面程序不在本机建库，而是连接到你网络中的现有 Lomo 服务。
 
 ## 2. 安装与启动
